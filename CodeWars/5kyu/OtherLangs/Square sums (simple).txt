@@ -1,0 +1,44 @@
+https://www.codewars.com/kata/5a6b24d4e626c59d5b000066
+
+
+
+import sys
+
+def square_sums_row(num):
+    graph = create_graph(num)
+    if graph == False:
+        return False
+    root_node = min(graph.keys(), key=(lambda v: len(graph[v])))
+    result = dfs(root_node, graph, [], set(), num)
+    return result if result else False
+
+def create_graph(num):
+    squares = set([item ** 2 for item in range(1, 2*num)])
+    graph = {}
+
+    for vertex in range(1, num+1):
+        adj_list = []
+        for edge in range(1, num+1):
+            if vertex + edge in squares and vertex != edge:
+                adj_list.append(edge)
+
+        if len(adj_list) == 0:
+            return False
+        graph[vertex] = set(adj_list)
+
+    return graph
+
+def dfs(edge, graph, parents, set_parents, num):
+    new_list = parents + [edge]
+    new_set = set_parents.copy()
+    new_set.add(edge)
+    if len(new_set) == num:
+        return new_list
+
+    adj_nodes = [tuple((adj_node, graph[adj_node] - new_set))
+                 for adj_node in graph[edge] - new_set]
+
+    for node, _ in sorted(adj_nodes, key=lambda tup: len(tup[1])):
+        result = dfs(node, graph, new_list, new_set, num)
+        if result:
+            return result

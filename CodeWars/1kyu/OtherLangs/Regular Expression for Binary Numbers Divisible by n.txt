@@ -1,0 +1,75 @@
+https://www.codewars.com/kata/5993c1d917bc97d05d000068
+
+
+
+class Term(object):
+    def __init__(self, state, symbol):
+        self.state = str(state)
+        self.symbol = str(symbol)
+        
+    def __str__(self):
+        return self.state + '(' + self.symbol + ')'
+        
+def removeLoops(table):
+    loops = dict()
+    
+    for i in range(1, len(table)):
+        row = table[i]
+        for term in row:
+            if term.state == str(i):
+                loops[term.state] = term.symbol
+                row.remove(term)
+                
+    for i in range(len(table)):
+        row = table[i]
+        for term in row:
+            if term.state in loops:
+                if len(loops[term.state]) > 1:
+                    term.symbol = '(?:' + loops[term.state] + ')*' + term.symbol
+                else:
+                    term.symbol = loops[term.state] + '*' + term.symbol
+        
+                
+def substituteLastTerm(table):
+    state = str(len(table) - 1)
+    terms = table.pop()
+    for i in range(len(table) - 1, -1, -1):
+        row = table[i]
+        newRow = []
+        for t in row:
+            if t.state == state:
+                for term in terms:
+                    newRow.append(Term(term.state, term.symbol + t.symbol))
+            else:
+                newRow.append(t)
+        table[i] = consolidatedRow(newRow)
+        
+def consolidatedRow(row):
+    terms = dict()
+    for term in row:
+        if term.state in terms:
+            terms[term.state].append(term.symbol)
+        else:
+            terms[term.state] = [term.symbol]
+    
+    result = []
+    for state in sorted(terms.keys()):
+        if len(terms[state]) > 1:
+            result.append(Term(state, '(?:' + '|'.join(terms[state]) + ')'))
+        else:
+            result.append(Term(state, terms[state][0]))
+    return result
+        
+def regex_divisible_by(n):
+    if n == 1:
+        return '^(0|1)+$'
+    
+    table = []
+    for i in range(n):
+        table.append([Term(i//2, i%2), Term((i+n)//2, (i+n)%2)])
+        
+    while len(table) > 1:
+        removeLoops(table)
+        substituteLastTerm(table)
+        
+    return '^' + table[0][0].symbol + '+$'

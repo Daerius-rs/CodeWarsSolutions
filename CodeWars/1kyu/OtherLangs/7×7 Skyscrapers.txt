@@ -1,0 +1,341 @@
+https://www.codewars.com/kata/5917a2205ffc30ec3a0000a8
+
+
+
+using System;
+using System.Collections.Generic;
+
+public static class Skyscrapers
+{
+  private const int N = 7;
+  private const int Sides = 4;
+  private const int Mask = (1 << N) - 1;
+
+
+
+  private static readonly int[] StartValues;
+  private static readonly int[] StepValues;
+
+
+
+  static Skyscrapers()
+  {
+    StartValues = new[]
+    {
+      0, 1, 2, 3, 4, 5, 6,
+      6, 13, 20, 27, 34, 41, 48,
+      48, 47, 46, 45, 44, 43, 42,
+      42, 35, 28, 21, 14, 7, 0
+    };
+    StepValues = new[]
+    {
+      7, 7, 7, 7, 7, 7, 7,
+      -1, -1, -1, -1, -1, -1, -1,
+      -7, -7, -7, -7, -7, -7, -7,
+      1, 1, 1, 1, 1, 1, 1
+    };
+  }
+
+
+
+  private static void SetValue(
+    ref int[] possible, int value, int offset)
+  {
+    var mask = Mask ^ (1 << offset);
+    var row = value - value % N;
+    var column = value % N;
+
+    for (var i = 0; i < N; ++i)
+    {
+      possible[row + i] &= mask;
+      possible[column + i * N] &= mask;
+    }
+
+    possible[value] = 1 << offset;
+  }
+
+  private static int GetPossibleCount(
+    int value)
+  {
+    var n = 0;
+
+    while (value > 0)
+    {
+      n += value & 1;
+
+      value >>= 1;
+    }
+
+    return n;
+  }
+
+  private static bool IsValid(
+    ref int[] clues, ref int[] possible)
+  {
+    for (var i = 0; i < Sides * N; ++i)
+    {
+      if (clues[i] == 0)
+        continue;
+
+      var isDecided = true;
+
+      for (int j = StartValues[i], k = 0; k < N; j += StepValues[i], ++k)
+      {
+        if (GetPossibleCount(possible[j]) == 1)
+          continue;
+
+        isDecided = false;
+
+        break;
+      }
+
+      if (!isDecided)
+        continue;
+
+      var max = 0;
+      var clue = 0;
+
+      for (int j = StartValues[i], k = 0; k < N; j += StepValues[i], ++k)
+      {
+        if (max >= possible[j])
+          continue;
+
+        max = possible[j];
+
+        ++clue;
+      }
+
+      if (clue != clues[i])
+        return false;
+    }
+
+    return true;
+  }
+
+  private static void Filter(
+    ref int[] clues, ref int[] possible)
+  {
+    for (var i = 0; i < Sides * N; ++i)
+    {
+      if (clues[i] != 2)
+        continue;
+
+      var mask = Mask;
+
+      for (var j = N - 1; j >= 0; --j)
+      {
+        mask ^= 1 << j;
+
+        if (((1 << j) & possible[StartValues[i]]) > 0)
+          break;
+      }
+
+      for (int j = StartValues[i] + StepValues[i], k = 1; k < N; j += StepValues[i], ++k)
+      {
+        if (((1 << (N - 1)) & possible[j]) > 0)
+          break;
+
+        if ((possible[j] | mask) != mask)
+          possible[j] &= mask;
+      }
+    }
+  }
+
+  private static void MakeUnique(ref int[] possible)
+  {
+    while (true)
+    {
+      var decidesCount = 0;
+
+      for (var i = 0; i < Sides / 2 * N; ++i)
+      {
+        var possibleIndexes =
+          new Dictionary<int, List<int>>();
+
+        for (int j = StartValues[i], k = 0; k < N; j += StepValues[i], ++k)
+        {
+          for (var m = 0; m < N; ++m)
+          {
+            if (((1 << m) & possible[j]) <= 0)
+              continue;
+
+            if (!possibleIndexes.ContainsKey(m))
+              possibleIndexes[m] = new List<int>();
+
+            possibleIndexes[m].Add(j);
+          }
+        }
+
+        foreach (var (key, value) in possibleIndexes)
+        {
+          if (value.Count != 1)
+            continue;
+
+          if (possible[value[0]] == (1 << key))
+            continue;
+
+          ++decidesCount;
+
+          SetValue(ref possible,
+            value[0], key);
+        }
+      }
+
+      if (decidesCount > 0)
+        continue;
+
+      break;
+    }
+  }
+
+  private static void Prepare(
+    ref int[] clues, ref int[] possible)
+  {
+    for (var i = 0; i < Sides * N; ++i)
+    {
+      if (clues[i] == 0)
+        continue;
+
+      for (int j = StartValues[i], k = 0; k < N; j += StepValues[i], ++k)
+      {
+        var mask = Mask;
+
+        for (var m = N + k - clues[i] + 1; m < N; ++m)
+        {
+          mask ^= 1 << m;
+        }
+
+        possible[j] &= mask;
+      }
+    }
+
+    MakeUnique(
+      ref possible);
+    Filter(ref clues,
+      ref possible);
+  }
+
+  private static bool Process(
+    ref int[][] result, ref int[] clues,
+    ref int[] possible, ref bool[] visited)
+  {
+    var index = -1;
+    var minCount = 10000;
+
+    for (var i = 0; i < N * N; ++i)
+    {
+      var count = GetPossibleCount(
+        possible[i]);
+
+      if (minCount <= count
+        || visited[i])
+      {
+        continue;
+      }
+
+      index = i;
+      minCount = count;
+    }
+
+    if (index == -1)
+    {
+      if (!IsValid(ref clues, ref possible))
+        return false;
+
+      for (var i = 0; i < N * N; ++i)
+      {
+        var quotient = i / N;
+        var remainder = i % N;
+
+        for (var j = 0; j < N; ++j)
+        {
+          if ((1 << j) != possible[i])
+            continue;
+
+          result[quotient][remainder] = j + 1;
+
+          break;
+        }
+      }
+
+      return true;
+    }
+
+    var possibleCopy = new int[N * N];
+
+    Array.Copy(possible,
+      possibleCopy, N * N);
+
+    for (var j = N - 1; j >= 0; --j)
+    {
+      var mask = (1 << j) & possible[index];
+
+      if (mask <= 0)
+        continue;
+
+      visited[index] = true;
+
+      SetValue(ref possible,
+        index, j);
+
+      var isFound = false;
+
+      if (IsValid(ref clues,
+        ref possible))
+      {
+        isFound = Process(ref result,
+          ref clues, ref possible,
+          ref visited);
+      }
+
+      visited[index] = false;
+
+      Array.Copy(possibleCopy,
+        possible, N * N);
+
+      if (isFound)
+        return true;
+    }
+
+    return false;
+  }
+
+
+
+  public static int[][] SolvePuzzle(
+    int[] clues)
+  {
+    var possible = new int[N * N];
+    var visited = new bool[N * N];
+
+    for (var i = 0; i < N * N; ++i)
+    {
+      possible[i] = Mask;
+      visited[i] = true;
+    }
+
+    var result = new int[N][];
+
+    for (var i = 0; i < N; ++i)
+    {
+      result[i] = new int[N];
+    }
+
+    Prepare(ref clues,
+      ref possible);
+
+    for (var i = 0; i < N * N; ++i)
+    {
+      var count = GetPossibleCount(
+        possible[i]);
+
+      if (count > 1)
+        visited[i] = false;
+    }
+
+    Process(ref result, ref clues,
+      ref possible, ref visited);
+
+    return result;
+  }
+}
